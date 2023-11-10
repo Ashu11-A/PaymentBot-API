@@ -2,9 +2,9 @@ import { CanActivate, ExecutionContext, Injectable, NotFoundException, Unauthori
 import { JwtService } from '@nestjs/jwt'
 import { Request } from 'express'
 import { jwtConstants } from './constants'
-import { PrismaService } from 'src/database/prismaService'
 import { SetMetadata } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
+import { UsersService } from '../users/users.service'
 
 export const IS_PUBLIC_KEY = 'isPublic'
 export const SkipAuth = () => SetMetadata(IS_PUBLIC_KEY, true)
@@ -13,8 +13,8 @@ export const SkipAuth = () => SetMetadata(IS_PUBLIC_KEY, true)
 export class AuthGuard implements CanActivate {
   constructor(
     private jwtService: JwtService,
-    private prisma: PrismaService,
-    private reflector: Reflector
+    private reflector: Reflector,
+    private usersService: UsersService
   ){}
 
   async canActivate(context: ExecutionContext): Promise<boolean | undefined> {
@@ -34,7 +34,7 @@ export class AuthGuard implements CanActivate {
       const { uuid } = payload
       if (!uuid) throw new UnauthorizedException()
 
-      const user = await this.prisma.user.findUnique({ where: { uuid }})
+      const user = await this.usersService.findOne({ uuid })
       if (!user) throw new NotFoundException
       request['user'] = user
     } catch {

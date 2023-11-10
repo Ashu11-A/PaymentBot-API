@@ -12,6 +12,11 @@ async function bootstrap () {
     whitelist: true,
     transform: true
   }))
+  app.enableCors({
+    origin: true,
+    methods: 'GET, PUT, DELETE, POST, PATCH',
+    credentials: true
+  })
   app.use(cookieParser())
   app.use(helmet())
 

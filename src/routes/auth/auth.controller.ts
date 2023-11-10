@@ -22,7 +22,7 @@ export class AuthController {
 
   @SkipAuth()
   @HttpCode(HttpStatus.OK)
-  @Post('registro')
+  @Post('signup')
   async create (@Body() createUser: CreateUserDto) {
     return this.authService.create(createUser)
   }
@@ -30,13 +30,13 @@ export class AuthController {
   @SkipAuth()
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login (@Body() loginUser: LoginUserDto, @Res() res: Response) {
+  async login (@Body() loginUser: LoginUserDto, @Res({ passthrough: true }) res: Response) {
     return this.authService.login(loginUser, res)
   }
 
   @SkipAuth()
   @Post('refresh')
-  reautenticar(@Body() body, @Req() req: Request, @Res() res: Response) {
+  reautenticar(@Body() body, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     return this.authService.reautenticar(body, req, res)
   }
 

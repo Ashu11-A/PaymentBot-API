@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common'
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common'
 import { User } from '@prisma/client'
 import { PrismaService } from 'src/database/prismaService'
+import { CreateUserDto } from '../auth/dto/create-user.dto'
+import { genSalt, hash } from 'bcrypt'
 
 @Injectable()
 export class UsersService {
@@ -8,20 +10,28 @@ export class UsersService {
     private prisma: PrismaService
   ){}
 
-  async create(options: {
-    name: string,
-    email: string,
-    password: string,
-    idPermission: number
-  }) {
-    const { name, email, password, idPermission } = options
+  async create(data: CreateUserDto) {
+    const { email, name, password } = data
+    const userExist = await this.findOne({ email })
+    if (userExist) throw new HttpException('❌ Usuário já existe!', HttpStatus.CONFLICT)
+
+    const salt = await genSalt(10)
+    const passwordHash = await hash(password, salt)
+    const permissions = await this.prisma.permission.upsert({
+      where: { name: 'user' },
+      update: {},
+      create: {
+        name: 'user',
+        level: 0
+      }
+    })
 
     return await this.prisma.user.create({
       data: {
         name,
         email,
-        password,
-        idPermission
+        password: passwordHash,
+        idPermission: permissions.id
       }
     })
   }
