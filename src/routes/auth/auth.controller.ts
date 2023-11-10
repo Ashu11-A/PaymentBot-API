@@ -13,8 +13,9 @@ import {
 import { AuthService } from './auth.service'
 import { CreateUserDto } from './dto/create-user.dto'
 import { LoginUserDto } from './dto/login-user.dto'
-import { AuthGuard, SkipAuth } from './auth.guard'
+import { JwtGuard, SkipAuth } from './guards/jwt.guard'
 import { Response, Request } from 'express'
+import { User } from '@prisma/client'
 
 @Controller('auth')
 export class AuthController {
@@ -40,9 +41,10 @@ export class AuthController {
     return this.authService.reautenticar(body, req, res)
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(JwtGuard)
   @Get('profile')
   getProfile(@Req() req) {
-    return req.user
+    const { name, email, idPermission, created_at, updated_at } = req.user as User
+    return { name, email, idPermission, created_at, updated_at }
   }
 }

@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common'
-import { PrismaService } from 'src/database/prismaService'
 import { compare } from 'bcrypt'
 import { LoginException } from 'src/exception/login.exception'
 import { type CreateUserDto } from './dto/create-user.dto'
@@ -35,7 +34,18 @@ export class AuthService {
 
     res.set('X-access-token', accessToken)
     res.set('X-refresh-token', refreshToken)
-    return { status: 'completed', message: '✅ Logado com sucesso!', accessToken, refreshToken }
+    return {
+      status: 'completed',
+      message: '✅ Logado com sucesso!',
+      user: {
+        name: user.name,
+        email: user.email
+      },
+      tokens: {
+        accessToken,
+        refreshToken
+      }
+    }
   }
 
   async reautenticar(body: { refreshToken: string }, req: Request, res: Response) {
@@ -87,6 +97,6 @@ export class AuthService {
 
   private extractTokenFromHeader(request: Request): string | undefined {
     const [type, token] = request.headers.authorization?.split(' ') ?? []
-    return type === 'Bearer' ? token : undefined
+    return type === 'Refresh' ? token : undefined
   }
 }

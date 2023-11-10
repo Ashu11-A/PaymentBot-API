@@ -1,23 +1,23 @@
 import { CanActivate, ExecutionContext, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { Request } from 'express'
-import { jwtConstants } from './constants'
+import { jwtConstants } from '../constants'
 import { SetMetadata } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
-import { UsersService } from '../users/users.service'
+import { UsersService } from '../../users/users.service'
 
 export const IS_PUBLIC_KEY = 'isPublic'
 export const SkipAuth = () => SetMetadata(IS_PUBLIC_KEY, true)
 
 @Injectable()
-export class AuthGuard implements CanActivate {
+export class JwtGuard implements CanActivate {
   constructor(
     private jwtService: JwtService,
     private reflector: Reflector,
     private usersService: UsersService
-  ){}
+  ) { }
 
-  async canActivate(context: ExecutionContext): Promise<boolean | undefined> {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass()
