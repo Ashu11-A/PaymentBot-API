@@ -1,6 +1,4 @@
 import { Module } from '@nestjs/common'
-import { AppController } from './app.controller'
-import { AppService } from './app.service'
 import { AuthModule } from './routes/auth/auth.module'
 import { ThrottlerModule } from '@nestjs/throttler'
 import { UsersModule } from './routes/users/users.module'
@@ -22,7 +20,7 @@ import { UsersModule } from './routes/users/users.module'
     ]),
     UsersModule
   ],
-  controllers: [AppController],
-  providers: [AppService]
+  controllers: [],
+  providers: []
 })
 export class AppModule {}
