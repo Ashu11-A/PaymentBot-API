@@ -1,10 +1,10 @@
 import { CanActivate, ExecutionContext, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { Request } from 'express'
-import { jwtConstants } from '../constants'
 import { SetMetadata } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { UsersService } from '../../users/users.service'
+import { ConfigService } from '@nestjs/config'
 
 export const IS_PUBLIC_KEY = 'isPublic'
 export const SkipAuth = () => SetMetadata(IS_PUBLIC_KEY, true)
@@ -14,7 +14,8 @@ export class JwtGuard implements CanActivate {
   constructor(
     private jwtService: JwtService,
     private reflector: Reflector,
-    private usersService: UsersService
+    private usersService: UsersService,
+    private configService: ConfigService
   ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -29,7 +30,7 @@ export class JwtGuard implements CanActivate {
     if (!token) throw new UnauthorizedException()
 
     try {
-      const payload = await this.jwtService.verifyAsync(token, { secret: jwtConstants.secret })
+      const payload = await this.jwtService.verifyAsync(token)
 
       const { uuid } = payload
       if (!uuid) throw new UnauthorizedException()

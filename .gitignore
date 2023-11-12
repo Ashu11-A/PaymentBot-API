@@ -42,3 +42,4 @@ package-lock.json
 
 # Database
 *.db
+.env.dev

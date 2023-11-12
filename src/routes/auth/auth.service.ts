@@ -1,25 +1,26 @@
 import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common'
 import { compare } from 'bcrypt'
-import { LoginException } from 'src/exception/login.exception'
+import { LoginException } from './exception/login.exception'
 import { type CreateUserDto } from './dto/create-user.dto'
 import { type LoginUserDto } from './dto/login-user.dto'
 import type { Response } from 'express'
 import { UsersService } from '../users/users.service'
 import { JwtService } from '@nestjs/jwt'
-import { jwtConstants } from './constants'
 import { Request } from 'express'
+import { ConfigService } from '@nestjs/config'
 
 @Injectable()
 export class AuthService {
 
   constructor(
     private usersService: UsersService,
-    private jwtService: JwtService
+    private jwtService: JwtService,
+    private configService: ConfigService
   ){}
 
   async create(data: CreateUserDto) {
     await this.usersService.create(data)
-    return { status: 'completed', message: '✅ Conta criada com sucesso!'}
+    return { status: 'success', message: '✅ Conta criada com sucesso!'}
   }
 
   async login (data: LoginUserDto, res: Response) {
@@ -35,7 +36,7 @@ export class AuthService {
     res.set('X-access-token', accessToken)
     res.set('X-refresh-token', refreshToken)
     return {
-      status: 'completed',
+      status: 'success',
       message: '✅ Logado com sucesso!',
       user: {
         name: user.name,
@@ -56,12 +57,11 @@ export class AuthService {
     if (!uuid) throw new UnauthorizedException('❌ Token Quebrado')
 
     const user = await this.usersService.findOne({ uuid })
-    console.log(user)
     if (!user) throw new NotFoundException('❌ Usuário não encontrado')
 
     try {
-      this.jwtService.verify(refreshToken, {
-        secret: jwtConstants.secretRefresh,
+      this.jwtService.verifyAsync(refreshToken, {
+        secret: this.configService.get('JWT_REFRESH'),
       })
 
       const [accessToken, newRefreshToken] = await this.genTokens({ uuid })
@@ -69,14 +69,10 @@ export class AuthService {
       res.set('X-access-token', accessToken)
       res.set('X-refresh-token', newRefreshToken)
 
-      return { status: 'completed', message: '✅ Relogado com sucesso!', accessToken, refreshToken }
+      return { status: 'success', message: '✅ Relogado com sucesso!', accessToken, refreshToken }
     } catch (err) {
-      if (err.name === 'JsonWebTokenError') {
-        throw new UnauthorizedException('❌ Assinatura Inválida')
-      }
-      if (err.name === 'TokenExpiredError') {
-        throw new UnauthorizedException('❌ Token Expirado')
-      }
+      if (err.name === 'JsonWebTokenError')  throw new UnauthorizedException('❌ Assinatura Inválida')
+      if (err.name === 'TokenExpiredError') throw new UnauthorizedException('❌ Token Expirado')
       throw new UnauthorizedException(err.name)
     }
   }
@@ -88,8 +84,8 @@ export class AuthService {
 
     const accessToken = await this.jwtService.signAsync({ uuid })
     const refreshToken  = await this.jwtService.signAsync({ uuid }, {
-      secret: jwtConstants.secretRefresh,
-      expiresIn: '7d'
+      secret: this.configService.get('JWT_REFRESH'),
+      expiresIn: this.configService.get('JWT_EXP_R')
     })
 
     return [accessToken, refreshToken]

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { AuthModule } from './routes/auth/auth.module'
 import { ThrottlerModule } from '@nestjs/throttler'
 import { UsersModule } from './routes/users/users.module'
+import { ConfigModule } from '@nestjs/config'
 
 @Module({
   imports: [
@@ -18,7 +19,11 @@ import { UsersModule } from './routes/users/users.module'
         limit: 20
       }
     ]),
-    UsersModule
+    UsersModule,
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env.dev', '.env']
+    })
   ],
   controllers: [],
   providers: []
