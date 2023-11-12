@@ -3,30 +3,30 @@ import { UsersService } from './users.service'
 import { User } from '@prisma/client'
 import { Public } from '../auth/pass.decorator'
 
-@Controller('user')
+@Public(false)
+@Controller()
 export class UserController {
   constructor(
     private userService: UsersService
   ){}
 
-  @Public(false)
-  @Get('profile')
+  @Get('user/profile')
   getProfile(@Req() req: { user: User }) {
     return req.user
   }
 
-  @Get(':id')
+  @Patch('user/update')
+  async update () {}
+
+  @Delete('user/delete')
+  async delete () {}
+
+
+  @Get('users/:id')
   async find () {}
 
-  @Public(false)
-  @Get()
+  @Get('users')
   async findAll () {
     return this.userService.findAll()
   }
-
-  @Patch()
-  async update () {}
-
-  @Delete()
-  async delete () {}
 }
