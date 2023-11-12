@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common'
 import { compare } from 'bcrypt'
 import { LoginException } from './exception/login.exception'
-import { type CreateUserDto } from './dto/create-user.dto'
+import { type SignUpDto } from './dto/signUp-user.dto'
 import { type LoginUserDto } from './dto/login-user.dto'
 import type { Response } from 'express'
 import { UsersService } from '../users/users.service'
@@ -18,7 +18,7 @@ export class AuthService {
     private configService: ConfigService
   ){}
 
-  async create(data: CreateUserDto) {
+  async create(data: SignUpDto) {
     await this.usersService.create(data)
     return { status: 'success', message: '✅ Conta criada com sucesso!'}
   }
@@ -28,8 +28,8 @@ export class AuthService {
     const user = await this.usersService.findOne({ email })
     if (!user) throw new LoginException()
 
-    const passwordVerify = compare(password, user.password)
-    if (!passwordVerify) throw new LoginException()
+    const passwordIsValid = compare(password, user.password)
+    if (!passwordIsValid) throw new LoginException()
 
     const [accessToken, refreshToken] = await this.genTokens({ uuid: user.uuid })
 

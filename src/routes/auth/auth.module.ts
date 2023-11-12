@@ -6,10 +6,12 @@ import { JwtModule, JwtModuleOptions } from '@nestjs/jwt'
 import { APP_GUARD } from '@nestjs/core'
 import { JwtGuard } from './guards/jwt.guard'
 import { ConfigModule, ConfigService } from '@nestjs/config'
+import { PassportModule } from '@nestjs/passport'
 
 @Module({
   imports: [
     UsersModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -24,7 +26,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config'
     AuthService,
     {
       provide: APP_GUARD,
-      useClass: JwtGuard,
+      useClass: JwtGuard
     }
   ],
   controllers: [AuthController],

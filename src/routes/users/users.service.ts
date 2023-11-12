@@ -1,22 +1,22 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common'
 import { User } from '@prisma/client'
 import { PrismaService } from 'src/database/prismaService'
-import { CreateUserDto } from '../auth/dto/create-user.dto'
+import { SignUpDto } from '../auth/dto/signUp-user.dto'
 import { genSalt, hash } from 'bcrypt'
 
 @Injectable()
 export class UsersService {
   constructor(
     private prisma: PrismaService
-  ){}
+  ) { }
 
-  async create(data: CreateUserDto) {
+  async create(data: SignUpDto) {
     const { email, name, password } = data
     const userExist = await this.findOne({ email })
     if (userExist) throw new HttpException('❌ Usuário já existe!', HttpStatus.CONFLICT)
 
     const salt = await genSalt(10)
-    const passwordHash = await hash(password, salt)
+    const hashedPassword = await hash(password, salt)
     const permissions = await this.prisma.permission.upsert({
       where: { name: 'user' },
       update: {},
@@ -30,7 +30,7 @@ export class UsersService {
       data: {
         name,
         email,
-        password: passwordHash,
+        password: hashedPassword,
         idPermission: permissions.id
       }
     })
@@ -45,6 +45,17 @@ export class UsersService {
 
     return await this.prisma.user.findUnique({
       where: { uuid, email }
+    })
+  }
+
+  async findAll() {
+    return this.prisma.user.findMany({
+      select: {
+        email: true,
+        name: true,
+        created_at: true,
+        updated_at: true
+      }
     })
   }
 }
