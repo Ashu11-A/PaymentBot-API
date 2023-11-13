@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common'
-import { AuthModule } from './routes/auth/auth.module'
+import { AuthModule } from './auth/auth.module'
 import { ThrottlerModule } from '@nestjs/throttler'
-import { UsersModule } from './routes/users/users.module'
+import { UsersModule } from './users/users.module'
 import { ConfigModule } from '@nestjs/config'
 
 @Module({
