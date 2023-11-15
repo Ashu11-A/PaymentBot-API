@@ -1,9 +1,9 @@
-import { Controller, Delete, Get, Patch, Req } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Patch, Post } from '@nestjs/common'
 import { UsersService } from './users.service'
 import { User } from '@prisma/client'
-import { Public } from '../auth/pass.decorator'
+import { CreateUserDto } from './dto/create-user.dto'
+import { CurrentUser } from 'src/auth/decorator/current-user.decorator'
 
-@Public(false)
 @Controller()
 export class UserController {
   constructor(
@@ -11,8 +11,13 @@ export class UserController {
   ){}
 
   @Get('user/profile')
-  getProfile(@Req() req: { user: User }) {
-    return req.user
+  getProfile(@CurrentUser() user: User) {
+    return user
+  }
+
+  @Post('user/create')
+  async create (@Body() createUserDto: CreateUserDto) {
+    return this.userService.create(createUserDto)
   }
 
   @Patch('user/update')

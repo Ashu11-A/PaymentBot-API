@@ -1,35 +1,55 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common'
-import { compare } from 'bcrypt'
-import { LoginException } from './exception/login.exception'
-import { type SignUpDto } from './dto/signUp-user.dto'
-import { type LoginUserDto } from './dto/login-user.dto'
-import type { Response } from 'express'
-import { UsersService } from '../users/users.service'
-import { JwtService } from '@nestjs/jwt'
-import { Request } from 'express'
+import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { JwtService } from '@nestjs/jwt'
+import { compare } from 'bcrypt'
+import { User } from 'src/users/entities/user.entity'
+import { UsersService } from '../users/users.service'
+import { UserPayload } from './models/UserPayload'
+import { UserToken } from './models/UserToken'
 
 @Injectable()
 export class AuthService {
-
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService
   ){}
 
-  async create(data: SignUpDto) {
-    await this.usersService.create(data)
-    return { status: 'success', message: '✅ Conta criada com sucesso!'}
+  async validateUser(email: string, password: string) {
+    const user = await this.usersService.findByEmail(email)
+
+    if (user) {
+      // Checar se a senha informada corresponde ao hash do database
+
+      const isPasswordValid = await compare(password, user.password)
+
+      if (isPasswordValid) {
+        return {
+          ...user,
+          password: undefined
+        }
+      }
+    }
+    // Se chegar aqui, significa que não encontrou um usuário e/ou a senha não correspondente!
+    throw new Error('❌ Email ou Senha invalidos!')
   }
 
-  async login (data: LoginUserDto, res: Response) {
-    const { email, password } = data
-    const user = await this.usersService.findOne({ email })
-    if (!user) throw new LoginException()
+  async login(user: User): Promise<UserToken> {
+    // Transforma em um token JWT
 
-    const passwordIsValid = compare(password, user.password)
-    if (!passwordIsValid) throw new LoginException()
+    const payload: UserPayload = {
+      sub: user.uuid,
+      email: user.email,
+      name: user.name
+    }
+
+    const jwtToken = this.jwtService.sign(payload)
+
+    return {
+      accessToken: jwtToken
+    }
+  }
+  /*
 
     const [accessToken, refreshToken] = await this.genTokens({ uuid: user.uuid })
 
@@ -46,17 +66,18 @@ export class AuthService {
         accessToken,
         refreshToken
       }
-    }
-  }
 
-  async reautenticar(body: { refreshToken: string }, req: Request, res: Response) {
+
+  async reautenticar(body: { refreshToken: string | undefined }, req: Request, res: Response) {
     const refreshToken = body.refreshToken ?? this.extractTokenFromHeader(req)
-    if (!refreshToken) throw new NotFoundException('❌ Token não expecificado')
+    if (!refreshToken || refreshToken === 'undefined') throw new NotFoundException('❌ Token não expecificado, token: ' + refreshToken)
+
+    console.log(refreshToken)
 
     const { uuid } = this.jwtService.decode(refreshToken)
     if (!uuid) throw new UnauthorizedException('❌ Token Quebrado')
 
-    const user = await this.usersService.findOne({ uuid })
+    const user = await this.usersService.findByUUID(uuid)
     if (!user) throw new NotFoundException('❌ Usuário não encontrado')
 
     try {
@@ -95,4 +116,6 @@ export class AuthService {
     const [type, token] = request.headers.authorization?.split(' ') ?? []
     return type === 'Refresh' ? token : undefined
   }
+    */
 }
+

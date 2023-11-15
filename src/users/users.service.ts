@@ -1,50 +1,57 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common'
-import { User } from '@prisma/client'
-import { PrismaService } from 'src/database/prismaService'
-import { SignUpDto } from '../auth/dto/signUp-user.dto'
-import { genSalt, hash } from 'bcrypt'
-
+import { Prisma, User } from '@prisma/client'
+import { genSalt, hashSync } from 'bcrypt'
+import { PrismaService } from 'src/prisma/prisma.service'
+import { CreateUserDto } from './dto/create-user.dto'
 @Injectable()
 export class UsersService {
   constructor(
     private prisma: PrismaService
   ) { }
 
-  async create(data: SignUpDto) {
-    const { email, name, password } = data
-    const userExist = await this.findOne({ email })
-    if (userExist) throw new HttpException('❌ Usuário já existe!', HttpStatus.CONFLICT)
+  async create(createUserDto: CreateUserDto) {
+    const emailExist = await this.findByEmail(createUserDto.email)
+    const usernameExist = await this.findByUsername(createUserDto.username)
+    if (emailExist || usernameExist) throw new HttpException('❌ Usuário já existe!', HttpStatus.CONFLICT)
 
     const salt = await genSalt(10)
-    const hashedPassword = await hash(password, salt)
-    const permissions = await this.prisma.permission.upsert({
-      where: { name: 'user' },
-      update: {},
-      create: {
-        name: 'user',
-        level: 0
-      }
-    })
 
-    return await this.prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        idPermission: permissions.id
-      }
+    const data: Prisma.UserCreateInput = {
+      ...createUserDto,
+      permission: {
+        connect: { name: 'user' },
+        create: {
+          name: 'user',
+          level: 0
+        }
+      },
+      password: hashSync(createUserDto.password, salt)
+    }
+
+    const createUser = await this.prisma.user.create({ data })
+    return {
+      ...createUser,
+      password: undefined
+    }
+  }
+
+  /* Find Users */
+
+  async findByEmail(email: string): Promise<User | undefined> {
+    return await this.prisma.user.findFirst({
+      where: { email }
     })
   }
 
-  async findOne(options: {
-    uuid?: string
-    email?: string
+  async findByUsername(username: string): Promise<User | undefined> {
+    return await this.prisma.user.findFirst({
+      where: { username }
+    })
   }
-  ): Promise<User | undefined> {
-    const { uuid, email } = options
 
-    return await this.prisma.user.findUnique({
-      where: { uuid, email }
+  async findByUUID(uuid: string): Promise<User | undefined> {
+    return await this.prisma.user.findFirst({
+      where: { uuid }
     })
   }
 

@@ -1,8 +1,10 @@
-export class User {
+export class CreateUser {
+  id?: number
   uuid: string
-  name: string
   email: string
   password: string
+  name: string
+  username: string
   idPermission: number
   created_at: string
   updated_at: string

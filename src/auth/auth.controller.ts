@@ -1,40 +1,45 @@
 import {
-  Controller,
-  Post,
   Body,
+  Controller,
   HttpCode,
-  Res,
   HttpStatus,
-  Req
+  Post,
+  Req,
+  Res,
+  UseGuards,
 } from '@nestjs/common'
 
+import { Request, Response } from 'express'
+import { CreateUserDto } from 'src/users/dto/create-user.dto'
+import { UsersService } from 'src/users/users.service'
 import { AuthService } from './auth.service'
-import { SignUpDto } from './dto/signUp-user.dto'
-import { LoginUserDto } from './dto/login-user.dto'
-import { Response, Request } from 'express'
-import { Public } from './pass.decorator'
+import { IsPublic } from './decorator/pass.decorator'
+import { LocalAuthGuard } from './guards/local-auth.guard'
+import { AuthRequest } from './models/AuthRequest'
 
+@UseGuards(LocalAuthGuard)
+@IsPublic()
 @Controller('auth')
 export class AuthController {
-  constructor (private readonly authService: AuthService) {}
+  constructor (
+    private readonly authService: AuthService,
+    private readonly userService: UsersService
+  ) {}
 
-  @Public()
-  @HttpCode(HttpStatus.OK)
   @Post('signup')
-  async create (@Body() signUpDto: SignUpDto) {
-    return this.authService.create(signUpDto)
+  async create (@Body() signUpDto: CreateUserDto) {
+    return await this.userService.create(signUpDto)
   }
 
-  @Public()
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login (@Body() loginUser: LoginUserDto, @Res({ passthrough: true }) res: Response) {
-    return this.authService.login(loginUser, res)
+  async login (@Req() req: AuthRequest) {
+    return this.authService.login(req.user)
   }
 
-  @Public()
+  @HttpCode(HttpStatus.OK)
   @Post('refresh')
   reautenticar(@Body() body, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    return this.authService.reautenticar(body, req, res)
+    // return this.authService.reautenticar(body, req, res)
   }
 }
