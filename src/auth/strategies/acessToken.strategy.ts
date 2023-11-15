@@ -5,7 +5,7 @@ import { UserFromJwt } from '../models/UserFromJwt'
 import { UserPayload } from '../models/UserPayload'
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy) {
+export class JwtAccessTokenStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor() {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),

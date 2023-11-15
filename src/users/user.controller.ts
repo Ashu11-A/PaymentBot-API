@@ -1,8 +1,7 @@
-import { Body, Controller, Delete, Get, Patch, Post } from '@nestjs/common'
-import { UsersService } from './users.service'
+import { Controller, Delete, Get, Patch } from '@nestjs/common'
 import { User } from '@prisma/client'
-import { CreateUserDto } from './dto/create-user.dto'
 import { CurrentUser } from 'src/auth/decorator/current-user.decorator'
+import { UsersService } from './users.service'
 
 @Controller()
 export class UserController {
@@ -13,11 +12,6 @@ export class UserController {
   @Get('user/profile')
   getProfile(@CurrentUser() user: User) {
     return user
-  }
-
-  @Post('user/create')
-  async create (@Body() createUserDto: CreateUserDto) {
-    return this.userService.create(createUserDto)
   }
 
   @Patch('user/update')

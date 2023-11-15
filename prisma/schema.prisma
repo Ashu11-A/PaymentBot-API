@@ -17,6 +17,7 @@ model User {
     name String
     email String @unique
     password String
+    refreshToken String?
     idPermission Int
     permission Permission @relation(fields: [idPermission], references: [id])
     created_at DateTime @default(now())

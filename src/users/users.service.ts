@@ -1,36 +1,29 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { Prisma, User } from '@prisma/client'
-import { genSalt, hashSync } from 'bcrypt'
 import { PrismaService } from 'src/prisma/prisma.service'
-import { CreateUserDto } from './dto/create-user.dto'
+import { UpdateUser } from './dto/update-user.dto'
 @Injectable()
 export class UsersService {
   constructor(
     private prisma: PrismaService
   ) { }
 
-  async create(createUserDto: CreateUserDto) {
-    const emailExist = await this.findByEmail(createUserDto.email)
-    const usernameExist = await this.findByUsername(createUserDto.username)
-    if (emailExist || usernameExist) throw new HttpException('❌ Usuário já existe!', HttpStatus.CONFLICT)
-
-    const salt = await genSalt(10)
-
-    const data: Prisma.UserCreateInput = {
-      ...createUserDto,
-      permission: {
-        connect: { name: 'user' },
-        create: {
-          name: 'user',
-          level: 0
-        }
-      },
-      password: hashSync(createUserDto.password, salt)
-    }
-
+  async create(data: Prisma.UserCreateInput) {
+    console.log(data)
     const createUser = await this.prisma.user.create({ data })
     return {
       ...createUser,
+      password: undefined
+    }
+  }
+
+  async update(uuid: string, updateUserDto: UpdateUser): Promise<User> {
+    const updateUserData = this.prisma.user.update({
+      where: { uuid },
+      data: { ...updateUserDto }
+    })
+    return {
+      ...updateUserData,
       password: undefined
     }
   }

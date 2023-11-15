@@ -1,11 +1,13 @@
-import { Injectable } from '@nestjs/common'
+import { ForbiddenException, HttpException, HttpStatus, Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
-import { compare } from 'bcrypt'
+import { compare, genSalt, hash, hashSync } from 'bcrypt'
+import { CreateUserDto } from 'src/users/dto/create-user.dto'
 import { User } from 'src/users/entities/user.entity'
 import { UsersService } from '../users/users.service'
 import { UserPayload } from './models/UserPayload'
 import { UserToken } from './models/UserToken'
+import { Prisma } from '@prisma/client'
 
 @Injectable()
 export class AuthService {
@@ -13,7 +15,7 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService
-  ){}
+  ) { }
 
   async validateUser(email: string, password: string) {
     const user = await this.usersService.findByEmail(email)
@@ -34,88 +36,129 @@ export class AuthService {
     throw new Error('❌ Email ou Senha invalidos!')
   }
 
+  async create (createUserDto: CreateUserDto) {
+    const emailExist = await this.usersService.findByEmail(createUserDto.email)
+    if (emailExist) throw new HttpException('❌ Usuário já existe!', HttpStatus.CONFLICT)
+
+    const salt = await genSalt(10)
+
+    const data: Prisma.UserCreateInput = {
+      ...createUserDto,
+      permission: {
+        connect: { name: 'user' },
+        connectOrCreate: {
+          where: {
+            name: 'user'
+          },
+          create: {
+            name: 'user',
+            level: 0
+          }
+        }
+      },
+      password: hashSync(createUserDto.password, salt)
+    }
+    const newUser = await this.usersService.create(data)
+
+    const payload: UserPayload = {
+      sub: newUser.uuid,
+      email: newUser.email,
+      name: newUser.name
+    }
+
+    const tokens = await this.genTokens(payload)
+    await this.updateRefreshToken(payload.sub, tokens.refreshToken)
+    return tokens
+  }
+
   async login(user: User): Promise<UserToken> {
     // Transforma em um token JWT
-
     const payload: UserPayload = {
       sub: user.uuid,
       email: user.email,
       name: user.name
     }
 
-    const jwtToken = this.jwtService.sign(payload)
+    const { accessToken, refreshToken } = await this.genTokens(payload)
+
+    await this.updateRefreshToken(payload.sub, refreshToken)
 
     return {
-      accessToken: jwtToken
-    }
-  }
-  /*
-
-    const [accessToken, refreshToken] = await this.genTokens({ uuid: user.uuid })
-
-    res.set('X-access-token', accessToken)
-    res.set('X-refresh-token', refreshToken)
-    return {
-      status: 'success',
-      message: '✅ Logado com sucesso!',
-      user: {
-        name: user.name,
-        email: user.email
-      },
-      tokens: {
-        accessToken,
-        refreshToken
-      }
-
-
-  async reautenticar(body: { refreshToken: string | undefined }, req: Request, res: Response) {
-    const refreshToken = body.refreshToken ?? this.extractTokenFromHeader(req)
-    if (!refreshToken || refreshToken === 'undefined') throw new NotFoundException('❌ Token não expecificado, token: ' + refreshToken)
-
-    console.log(refreshToken)
-
-    const { uuid } = this.jwtService.decode(refreshToken)
-    if (!uuid) throw new UnauthorizedException('❌ Token Quebrado')
-
-    const user = await this.usersService.findByUUID(uuid)
-    if (!user) throw new NotFoundException('❌ Usuário não encontrado')
-
-    try {
-      this.jwtService.verifyAsync(refreshToken, {
-        secret: this.configService.get('JWT_REFRESH'),
-      })
-
-      const [accessToken, newRefreshToken] = await this.genTokens({ uuid })
-
-      res.set('X-access-token', accessToken)
-      res.set('X-refresh-token', newRefreshToken)
-
-      return { status: 'success', message: '✅ Relogado com sucesso!', accessToken, refreshToken }
-    } catch (err) {
-      if (err.name === 'JsonWebTokenError')  throw new UnauthorizedException('❌ Assinatura Inválida')
-      if (err.name === 'TokenExpiredError') throw new UnauthorizedException('❌ Token Expirado')
-      throw new UnauthorizedException(err.name)
+      accessToken,
+      refreshToken
     }
   }
 
-  private async genTokens (payload: {
-    uuid: string
-  }) {
-    const { uuid } = payload
+  async logout(uuid: string) {
+    this.usersService.update(uuid, { refreshToken: null })
+    return {
+      message: '👋 Tchau'
+    }
+  }
 
-    const accessToken = await this.jwtService.signAsync({ uuid })
-    const refreshToken  = await this.jwtService.signAsync({ uuid }, {
-      secret: this.configService.get('JWT_REFRESH'),
-      expiresIn: this.configService.get('JWT_EXP_R')
+  async refreshToken(payload: UserPayload, refreshToken: string) {
+    // Extrai as informações do payload, para evitar erros causados pelo "exp" que está incluso
+    const { email, name, sub } = payload
+
+    const user = await this.usersService.findByUUID(sub)
+    if (!user || !user.refreshToken) throw new ForbiddenException('⛔ Access Denied')
+
+    const refreshTokenMatches = await compare(refreshToken, user.refreshToken)
+    if (!refreshTokenMatches) throw new ForbiddenException('⛔ Access Denied')
+
+    const tokens = await this.genTokens({ email, name, sub })
+    await this.updateRefreshToken(sub, tokens.refreshToken)
+
+    return tokens
+  }
+
+  private async updateRefreshToken(uuid: string, refreshToken: string) {
+    const salt = await genSalt(10)
+    const hashedRefreshToken = await hash(refreshToken, salt)
+
+    await this.usersService.update(uuid, {
+      refreshToken: hashedRefreshToken
     })
-
-    return [accessToken, refreshToken]
   }
 
-  private extractTokenFromHeader(request: Request): string | undefined {
-    const [type, token] = request.headers.authorization?.split(' ') ?? []
-    return type === 'Refresh' ? token : undefined
+
+  private async genTokens(payload: UserPayload) {
+    // Gera os 2 tipos de tokens usados para validar o usuário
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(payload, {
+        secret: this.configService.get<string>('JWT_SECRET'),
+        expiresIn: this.configService.get<string>('JWT_EXP_S')
+      }),
+      this.jwtService.signAsync(payload, {
+        secret: this.configService.get<string>('JWT_REFRESH'),
+        expiresIn: this.configService.get<string>('JWT_EXP_R')
+      })
+    ])
+
+    return { accessToken, refreshToken }
   }
-    */
 }
 
+
+/*
+  async reautenticar(req: Request) {
+    const payload: UserPayload = this.jwtService.decode(refreshToken)
+    if (payload) throw new UnauthorizedException('❌ Token Quebrado')
+
+    const user = await this.usersService.findByUUID(payload.sub)
+    if (user) throw new NotFoundException('❌ Usuário não encontrado')
+
+    const validateToken = await this.jwtService.verify(refreshToken, {
+      secret: await this.configService.get('JWT_REFRESH'),
+    })
+    if (validateToken) throw new UnauthorizedException('❌ Token Invalido')
+
+    const { accessToken, newRefreshToken } = await this.genTokens(payload)
+
+    return {
+      accessToken,
+      refreshToken: newRefreshToken
+    }
+
+  }
+  */
