@@ -2,86 +2,86 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+    provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+    provider = "sqlite"
+    url      = env("DATABASE_URL")
 }
 
 model User {
-    id Int @id @unique @default(autoincrement())
-    uuid String @unique @default(uuid())
-    username String
-    name String
-    email String @unique
-    password String
+    id           Int        @id @unique @default(autoincrement())
+    uuid         String     @unique @default(uuid())
+    name         String
+    username     String
+    email        String     @unique
+    password     String
     refreshToken String?
+    permission   Permission @relation(fields: [idPermission], references: [id])
     idPermission Int
-    permission Permission @relation(fields: [idPermission], references: [id])
-    created_at DateTime @default(now())
-    updated_at DateTime @updatedAt
+    created_at   DateTime   @default(now())
+    updated_at   DateTime   @updatedAt
 
     @@map("users")
 }
 
-model Permission  {
-    id Int @id @default(autoincrement())
-    name String @unique
+model Permission {
+    id    Int     @id @default(autoincrement())
+    name  String  @unique
     level Decimal
+    user  User[]
 
     @@map("permissions")
-    user User[]
 }
 
 model Product {
-    id String @id @default(uuid())
-    name String
-    description String?
-    price Decimal
-    created_at DateTime @default(now())
+    id              String            @id @default(uuid())
+    name            String
+    description     String?
+    price           Decimal
+    created_at      DateTime          @default(now())
+    cartItem        CartItem[]
+    ProductCategory ProductCategory[]
 
     @@map("products")
-    cartItem CartItem[]
-    ProductCategory ProductCategory[]
 }
 
 model Category {
-    id String @id @default(uuid())
-    name String
+    id              String            @id @default(uuid())
+    name            String
+    ProductCategory ProductCategory[]
 
     @@map("categories")
-    ProductCategory ProductCategory[]
 }
 
 model ProductCategory {
-    id String @id @default(uuid())
-    idProduct String
+    id         String   @id @default(uuid())
+    idProduct  String
     idCategory String
-    product Product @relation(fields: [idProduct], references: [id])
-    category Category @relation(fields: [idCategory], references: [id])
+    product    Product  @relation(fields: [idProduct], references: [id])
+    category   Category @relation(fields: [idCategory], references: [id])
 
     @@map("products_categories")
 }
 
 model Cart {
-    id Int @id @default(autoincrement())
-    amount Decimal
+    id        Int        @id @default(autoincrement())
+    amount    Decimal
     paymentId String?
+    cartItem  CartItem[]
 
     @@map("carts")
-    cartItem CartItem[]
 }
 
 model CartItem {
-cartId Int
-productId String
-quantity Int
+    cartId    Int
+    productId String
+    quantity  Int
 
-product Product @relation(fields: [productId], references: [id])
-cart Cart @relation(fields: [cartId], references: [id])
+    product Product @relation(fields: [productId], references: [id])
+    cart    Cart    @relation(fields: [cartId], references: [id])
 
-@@id([cartId, productId])
-@@map("cart_items")
+    @@id([cartId, productId])
+    @@map("cart_items")
 }
