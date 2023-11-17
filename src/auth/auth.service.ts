@@ -6,8 +6,9 @@ import { CreateUserDto } from 'src/users/dto/create-user.dto'
 import { User } from 'src/users/entities/user.entity'
 import { UsersService } from '../users/users.service'
 import { UserPayload } from './models/UserPayload'
-import { UserToken } from './models/UserToken'
+import { UserLogin } from './models/UserLogin'
 import { Prisma } from '@prisma/client'
+import ms from 'ms'
 
 @Injectable()
 export class AuthService {
@@ -36,7 +37,7 @@ export class AuthService {
     throw new Error('❌ Email ou Senha invalidos!')
   }
 
-  async create (createUserDto: CreateUserDto) {
+  async create(createUserDto: CreateUserDto) {
     const emailExist = await this.usersService.findByEmail(createUserDto.email)
     if (emailExist) throw new HttpException('❌ Usuário já existe!', HttpStatus.CONFLICT)
 
@@ -66,12 +67,12 @@ export class AuthService {
       name: newUser.name
     }
 
-    const tokens = await this.genTokens(payload)
-    await this.updateRefreshToken(payload.sub, tokens.refreshToken)
-    return tokens
+    const { accessToken, refreshToken } = await this.genTokens(payload)
+    await this.updateRefreshToken(payload.sub, refreshToken.token)
+    return { accessToken, refreshToken }
   }
 
-  async login(user: User): Promise<UserToken> {
+  async login(user: User): Promise<UserLogin> {
     // Transforma em um token JWT
     const payload: UserPayload = {
       sub: user.uuid,
@@ -81,9 +82,13 @@ export class AuthService {
 
     const { accessToken, refreshToken } = await this.genTokens(payload)
 
-    await this.updateRefreshToken(payload.sub, refreshToken)
+    await this.updateRefreshToken(payload.sub, refreshToken.token)
 
     return {
+      user: {
+        email: user.email,
+        name: user.name
+      },
       accessToken,
       refreshToken
     }
@@ -106,10 +111,10 @@ export class AuthService {
     const refreshTokenMatches = await compare(refreshToken, user.refreshToken)
     if (!refreshTokenMatches) throw new ForbiddenException('⛔ Access Denied')
 
-    const tokens = await this.genTokens({ email, name, sub })
-    await this.updateRefreshToken(sub, tokens.refreshToken)
+    const { accessToken, refreshToken: newRefreshToken } = await this.genTokens({ email, name, sub })
+    await this.updateRefreshToken(sub, newRefreshToken.token)
 
-    return tokens
+    return { accessToken, refreshToken: newRefreshToken }
   }
 
   private async updateRefreshToken(uuid: string, refreshToken: string) {
@@ -123,22 +128,33 @@ export class AuthService {
 
 
   private async genTokens(payload: UserPayload) {
+    const accessExpire = ms(this.configService.get<string>('JWT_EXP_S'))
+    const refreshExpire = ms(this.configService.get<string>('JWT_EXP_R'))
+
     // Gera os 2 tipos de tokens usados para validar o usuário
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>('JWT_SECRET'),
-        expiresIn: this.configService.get<string>('JWT_EXP_S')
+        expiresIn: accessExpire
       }),
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>('JWT_REFRESH'),
-        expiresIn: this.configService.get<string>('JWT_EXP_R')
+        expiresIn: refreshExpire
       })
     ])
 
-    return { accessToken, refreshToken }
+    return {
+      accessToken: {
+        token: accessToken,
+        expireIn: accessExpire
+      },
+      refreshToken: {
+        token: refreshToken,
+        expireIn: refreshExpire
+      }
+    }
   }
 }
-
 
 /*
   async reautenticar(req: Request) {
