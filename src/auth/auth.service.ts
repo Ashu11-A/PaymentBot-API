@@ -16,7 +16,7 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService
-  ) { }
+  ) {}
 
   async validateUser(email: string, password: string) {
     const user = await this.usersService.findByEmail(email)
@@ -109,7 +109,7 @@ export class AuthService {
     if (!user || !user.refreshToken) throw new ForbiddenException('⛔ Access Denied')
 
     const refreshTokenMatches = await compare(refreshToken, user.refreshToken)
-    if (!refreshTokenMatches) throw new ForbiddenException('⛔ Access Denied')
+    if (!refreshTokenMatches) throw new ForbiddenException('⛔ Tokens don\'t match')
 
     const { accessToken, refreshToken: newRefreshToken } = await this.genTokens({ email, name, sub })
     await this.updateRefreshToken(sub, newRefreshToken.token)
@@ -135,11 +135,11 @@ export class AuthService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>('JWT_SECRET'),
-        expiresIn: accessExpire
+        expiresIn: this.configService.get<string>('JWT_EXP_S')
       }),
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>('JWT_REFRESH'),
-        expiresIn: refreshExpire
+        expiresIn: this.configService.get<string>('JWT_EXP_R')
       })
     ])
 

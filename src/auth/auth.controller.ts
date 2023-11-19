@@ -43,6 +43,7 @@ export class AuthController {
     return this.authService.logout(req.user['uuid'])
   }
 
+  @IsPublic()
   @UseGuards(RefreshTokenGuard)
   @Get('refresh')
   refreshTokens(@Req() req: { user: UserPayload }) {

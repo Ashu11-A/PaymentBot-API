@@ -18,14 +18,14 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     if (isPublic) return true
 
     const canActivate = super.canActivate(context)
+    if (typeof canActivate === 'boolean') return canActivate
 
-    if (typeof canActivate === 'boolean') {
-      return canActivate
-    }
 
     const canActivatePromise = canActivate as Promise<boolean>
 
     return canActivatePromise.catch((error) => {
+      console.log(error)
+
       if (error instanceof Error) {
         throw new UnauthorizedException(error.message)
       }
