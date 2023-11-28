@@ -6,7 +6,7 @@ import { UpdateUser } from './dto/update-user.dto'
 export class UsersService {
   constructor(
     private prisma: PrismaService
-  ) { }
+  ) {}
 
   async create(data: Prisma.UserCreateInput) {
     console.log(data)
